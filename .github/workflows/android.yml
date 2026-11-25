@@ -6,13 +6,22 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Buat GitHub Release dari build ini?'
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Tag rilis (contoh: v1.0.0). Kosongkan untuk otomatis (build-<run_number>).'
+        type: string
+        required: false
 
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write          # ← WAJIB untuk membuat Release
 
 jobs:
   build:
@@ -42,14 +51,11 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      # ── Perbaikan penting: matikan auto-accept lisensi yang interaktif ──
       - name: Siapkan Android SDK
         uses: android-actions/setup-android@v3
         with:
-          # Nonaktifkan persetujuan lisensi otomatis dari action,
-          # karena versi cmdline-tools tertentu memanggil sdkmanager --licenses
-          # secara interaktif dan menyebabkan job hang.
           accept-android-sdk-licenses: false
-          # Jangan install paket 'tools' (sudah dihapus dari SDK repository).
           packages: ''
           log-accepted-android-sdk-licenses: false
 
@@ -90,11 +96,28 @@ jobs:
             echo "Secret ANDROID_KEYSTORE_BASE64 kosong: hanya APK debug yang dibuat."
           fi
 
+      # ── Tentukan nama tag rilis (dipakai step Release di bawah) ──
+      - name: Tentukan nama tag rilis
+        id: reltag
+        if: |
+          github.ref_type == 'tag' ||
+          (github.event_name == 'workflow_dispatch' && inputs.create_release)
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="build-${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Tag rilis: $TAG"
+
       - name: Bersihkan keystore
         if: always()
         run: rm -f android/release.keystore
 
-      - name: Unggah APK debug
+      - name: Unggah APK debug (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: vemotion-debug
@@ -102,7 +125,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Unggah APK dan AAB rilis
+      - name: Unggah APK dan AAB rilis (artifact)
         if: env.RILIS_DIBUAT == '1'
         uses: actions/upload-artifact@v4
         with:
@@ -113,11 +136,35 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+      # ── Buat GitHub Release + lampirkan file build ──
+      - name: Buat GitHub Release
+        if: steps.reltag.outputs.tag != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.reltag.outputs.tag }}
+          name: ${{ steps.reltag.outputs.tag }}
+          generate_release_notes: true
+          # Tandai pre-release jika hanya APK debug (tanpa keystore)
+          prerelease: ${{ env.RILIS_DIBUAT != '1' }}
+          fail_on_unmatched_files: false
+          files: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/debug/*.apk
+
       - name: Ringkasan
         run: |
-          echo "### Hasil build" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          ls -lh android/app/build/outputs/apk/debug/*.apk >> "$GITHUB_STEP_SUMMARY"
-          if [ "${RILIS_DIBUAT:-0}" = "1" ]; then
-            ls -lh android/app/build/outputs/apk/release/*.apk android/app/build/outputs/bundle/release/*.aab >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "### 📦 Hasil build"
+            echo ""
+            ls -lh android/app/build/outputs/apk/debug/*.apk 2>&1 || true
+            if [ "${RILIS_DIBUAT:-0}" = "1" ]; then
+              ls -lh android/app/build/outputs/apk/release/*.apk 2>&1 || true
+              ls -lh android/app/build/outputs/bundle/release/*.aab 2>&1 || true
+            fi
+            if [ -n "${{ steps.reltag.outputs.tag }}" ]; then
+              echo ""
+              echo "### 🚀 Rilis dibuat"
+              echo "Tag: [\`${{ steps.reltag.outputs.tag }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ steps.reltag.outputs.tag }})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
