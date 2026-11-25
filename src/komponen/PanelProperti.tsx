@@ -1,6 +1,16 @@
 import type { ReactNode } from 'react';
 import { useEditor } from '../inti/store';
 import { useT } from '../intl';
+import type { Kunci } from '../intl/terjemahan';
+import type { Easing } from '../skema/proyek';
+
+const EASING_KUNCI: Record<Easing, Kunci> = {
+  linear: 'easing.linear',
+  easeInOut: 'easing.easeInOut',
+  easeOut: 'easing.easeOut',
+  easeIn: 'easing.easeIn',
+  backOut: 'easing.backOut',
+};
 
 function Angka({
   label,
@@ -59,6 +69,7 @@ export function PanelProperti() {
   if (!proyek || !layer) return <p className="petunjuk-kosong">{t('editor.pilihLayer')}</p>;
 
   const teks = layer.teks;
+  const bentuk = layer.bentuk;
 
   return (
     <div className="properti">
@@ -187,6 +198,93 @@ export function PanelProperti() {
         </Bagian>
       )}
 
+      {bentuk && (
+        <Bagian judul={t('editor.bentuk')}>
+          <label className="baris-angka">
+            <span>{t('editor.bentuk.jenis')}</span>
+            <select
+              value={bentuk.bentuk}
+              onChange={(e) =>
+                ubahLayer(layer.id, (l) => {
+                  if (l.bentuk) l.bentuk.bentuk = e.target.value as typeof l.bentuk.bentuk;
+                })
+              }
+            >
+              <option value="kotak">{t('editor.bentuk.kotak')}</option>
+              <option value="bulat">{t('editor.bentuk.bulat')}</option>
+              <option value="garis">{t('editor.bentuk.garis')}</option>
+            </select>
+          </label>
+          <label className="baris-centang">
+            <input
+              type="checkbox"
+              checked={bentuk.isi !== 'transparan'}
+              onChange={(e) =>
+                ubahLayer(layer.id, (l) => {
+                  if (l.bentuk) l.bentuk.isi = e.target.checked ? '#7c5cff' : 'transparan';
+                })
+              }
+            />
+            {t('editor.bentuk.isi')}
+          </label>
+          <div className="dua-kolom">
+            <label className="baris-angka">
+              <span>{t('editor.teks.warna')}</span>
+              <input
+                type="color"
+                value={/^#[0-9a-f]{6}$/i.test(bentuk.isi) ? bentuk.isi : '#7c5cff'}
+                disabled={bentuk.isi === 'transparan'}
+                onChange={(e) => ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.isi = e.target.value))}
+              />
+            </label>
+            <label className="baris-angka">
+              <span>{t('editor.bentuk.garisWarna')}</span>
+              <input
+                type="color"
+                value={/^#[0-9a-f]{6}$/i.test(bentuk.garisWarna) ? bentuk.garisWarna : '#ffffff'}
+                onChange={(e) =>
+                  ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.garisWarna = e.target.value))
+                }
+              />
+            </label>
+          </div>
+          <div className="dua-kolom">
+            <Angka
+              label={t('editor.bentuk.lebar')}
+              nilai={bentuk.lebar}
+              min={1}
+              max={4000}
+              onUbah={(n) => ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.lebar = Math.max(1, n)))}
+            />
+            <Angka
+              label={t('editor.bentuk.tinggi')}
+              nilai={bentuk.tinggi}
+              min={1}
+              max={4000}
+              onUbah={(n) => ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.tinggi = Math.max(1, n)))}
+            />
+          </div>
+          <div className="dua-kolom">
+            <Angka
+              label={t('editor.bentuk.radius')}
+              nilai={bentuk.radius}
+              min={0}
+              max={600}
+              onUbah={(n) => ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.radius = Math.max(0, n)))}
+            />
+            <Angka
+              label={t('editor.bentuk.garisLebar')}
+              nilai={bentuk.garisLebar}
+              min={0}
+              max={60}
+              onUbah={(n) =>
+                ubahLayer(layer.id, (l) => l.bentuk && (l.bentuk.garisLebar = Math.max(0, Math.min(60, n))))
+              }
+            />
+          </div>
+        </Bagian>
+      )}
+
       {(layer.tipe === 'gambar' || layer.tipe === 'video') && (
         <Bagian judul={t('editor.cocok')}>
           <select
@@ -208,6 +306,22 @@ export function PanelProperti() {
           {layer.keyframes.map((k, i) => (
             <li key={i}>
               <span>{k.t.toFixed(2)}s</span>
+              <select
+                value={k.easing}
+                aria-label={t('editor.easing')}
+                onChange={(e) =>
+                  ubahLayer(layer.id, (l) => {
+                    const kf = l.keyframes[i];
+                    if (kf) kf.easing = e.target.value as Easing;
+                  })
+                }
+              >
+                {(Object.keys(EASING_KUNCI) as Easing[]).map((e) => (
+                  <option key={e} value={e}>
+                    {t(EASING_KUNCI[e])}
+                  </option>
+                ))}
+              </select>
               <button type="button" className="tautan" onClick={() => hapusKeyframe(layer.id, i)}>
                 {t('umum.hapus')}
               </button>

@@ -137,6 +137,53 @@ function gambarTeks(ctx: CanvasRenderingContext2D, layer: Layer, lebar: number, 
   });
 }
 
+function jalanKotakBulat(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const radius = Math.max(0, Math.min(r, Math.min(w, h) / 2));
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, radius);
+    return;
+  }
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+function gambarBentuk(ctx: CanvasRenderingContext2D, layer: Layer): void {
+  const b = layer.bentuk;
+  if (!b) return;
+  const w = b.lebar;
+  const h = b.tinggi;
+
+  ctx.beginPath();
+  if (b.bentuk === 'bulat') {
+    ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+  } else {
+    const r = b.bentuk === 'garis' ? Math.min(w, h) / 2 : b.radius;
+    jalanKotakBulat(ctx, -w / 2, -h / 2, w, h, r);
+  }
+
+  if (b.isi && b.isi !== 'transparan' && b.isi !== 'none') {
+    ctx.fillStyle = b.isi;
+    ctx.fill();
+  }
+  if (b.garisLebar > 0) {
+    ctx.strokeStyle = b.garisWarna;
+    ctx.lineWidth = b.garisLebar;
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+}
+
 function gambarLayer(ctx: CanvasRenderingContext2D, proyek: Proyek, layer: Layer, t: number, aset: Aset): void {
   if (!layer.tampil) return;
   const lokal = t - layer.mulai;
@@ -151,6 +198,8 @@ function gambarLayer(ctx: CanvasRenderingContext2D, proyek: Proyek, layer: Layer
 
   if (layer.tipe === 'teks') {
     gambarTeks(ctx, layer, proyek.lebar, lokal);
+  } else if (layer.tipe === 'bentuk') {
+    gambarBentuk(ctx, layer);
   } else {
     const el =
       layer.tipe === 'gambar' ? aset.gambar.get(layer.id) : aset.video.get(layer.id);
@@ -158,6 +207,27 @@ function gambarLayer(ctx: CanvasRenderingContext2D, proyek: Proyek, layer: Layer
   }
 
   ctx.restore();
+}
+
+function gambarLatar(ctx: CanvasRenderingContext2D, proyek: Proyek): void {
+  const w = proyek.lebar;
+  const h = proyek.tinggi;
+  const g = proyek.latarGradien;
+  if (g) {
+    const rad = (g.sudut * Math.PI) / 180;
+    const cx = w / 2;
+    const cy = h / 2;
+    const panjang = Math.abs(w * Math.cos(rad)) + Math.abs(h * Math.sin(rad));
+    const dx = (Math.cos(rad) * panjang) / 2;
+    const dy = (Math.sin(rad) * panjang) / 2;
+    const grad = ctx.createLinearGradient(cx - dx, cy - dy, cx + dx, cy + dy);
+    grad.addColorStop(0, g.dari);
+    grad.addColorStop(1, g.ke);
+    ctx.fillStyle = grad;
+  } else {
+    ctx.fillStyle = proyek.latar;
+  }
+  ctx.fillRect(0, 0, w, h);
 }
 
 export function gambarFrame(
@@ -168,8 +238,7 @@ export function gambarFrame(
 ): void {
   ctx.save();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = proyek.latar;
-  ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+  gambarLatar(ctx, proyek);
   ctx.restore();
 
   for (const layer of proyek.layers) gambarLayer(ctx, proyek, layer, t, aset);

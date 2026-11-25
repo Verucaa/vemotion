@@ -1,11 +1,24 @@
-import type { Layer, Transform } from '../skema/proyek';
+import type { Easing, Layer, Transform } from '../skema/proyek';
 
 export const PROPERTI = ['x', 'y', 'skala', 'rotasi', 'opacity'] as const;
 export type NamaProperti = (typeof PROPERTI)[number];
 
-function easing(x: number, jenis: 'linear' | 'easeInOut'): number {
-  if (jenis === 'linear') return x;
-  return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+function easing(x: number, jenis: Easing): number {
+  switch (jenis) {
+    case 'linear':
+      return x;
+    case 'easeOut':
+      return 1 - Math.pow(1 - x, 3);
+    case 'easeIn':
+      return x * x * x;
+    case 'backOut': {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    }
+    default:
+      return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  }
 }
 
 export function transformPada(layer: Layer, t: number): Transform {

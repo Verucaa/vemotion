@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { NamaPreset, Proyek } from '../skema/proyek';
-import { PRESET_EKSPOR, layerMedia, layerTeks } from '../skema/proyek';
+import { PRESET_EKSPOR, layerBentuk, layerMedia, layerTeks } from '../skema/proyek';
 import { useEditor } from '../inti/store';
 import { useAset } from '../inti/useAset';
 import { useT } from '../intl';
@@ -32,6 +32,7 @@ export function Editor({ awal, onKeluar }: Props) {
   const setMain = useEditor((s) => s.setMain);
   const pilihLayer = useEditor((s) => s.pilihLayer);
   const tambahLayer = useEditor((s) => s.tambahLayer);
+  const ubah = useEditor((s) => s.ubah);
   const gantiNama = useEditor((s) => s.gantiNama);
   const undo = useEditor((s) => s.undo);
   const redo = useEditor((s) => s.redo);
@@ -39,6 +40,7 @@ export function Editor({ awal, onKeluar }: Props) {
   const aset = useAset(proyek);
   const [nama, setNama] = useState(awal.nama);
   const [dialogEkspor, setDialogEkspor] = useState(false);
+  const [dialogLatar, setDialogLatar] = useState(false);
   const [preset, setPreset] = useState<NamaPreset>(() => bacaSetelan().presetEkspor);
   const [progres, setProgres] = useState<{ n: number; total: number } | null>(null);
   const [url, setUrl] = useState<string | null>(null);
@@ -86,6 +88,16 @@ export function Editor({ awal, onKeluar }: Props) {
     if (!proyek) return;
     const { mulai, durasi } = sisaDurasi(proyek, playhead);
     tambahLayer(layerTeks('Teks baru', mulai, durasi));
+  }
+
+  function tambahBentuk() {
+    if (!proyek) return;
+    const { mulai, durasi } = sisaDurasi(proyek, playhead);
+    const layer = layerBentuk('kotak', mulai, durasi, {
+      lebar: Math.round(proyek.lebar * 0.4),
+      tinggi: Math.round(proyek.lebar * 0.4),
+    });
+    tambahLayer(layer);
   }
 
   async function imporBerkas(berkas: File, tipe: 'gambar' | 'video') {
@@ -156,6 +168,15 @@ export function Editor({ awal, onKeluar }: Props) {
         <button type="button" className="ikon" disabled={depan.length === 0} onClick={redo} title="Redo">
           ↷
         </button>
+        <button
+          type="button"
+          className="ikon"
+          onClick={() => setDialogLatar(true)}
+          title={t('editor.latar')}
+          aria-label={t('editor.latar')}
+        >
+          ▦
+        </button>
         <button type="button" className="tombol utama" onClick={() => setDialogEkspor(true)}>
           {t('editor.ekspor')}
         </button>
@@ -192,6 +213,9 @@ export function Editor({ awal, onKeluar }: Props) {
         <button type="button" className="tombol" onClick={tambahTeks}>
           {t('editor.tambahTeks')}
         </button>
+        <button type="button" className="tombol" onClick={tambahBentuk}>
+          {t('editor.tambahBentuk')}
+        </button>
         <button type="button" className="tombol" onClick={() => berkasGambar.current?.click()}>
           {t('editor.tambahGambar')}
         </button>
@@ -224,6 +248,96 @@ export function Editor({ awal, onKeluar }: Props) {
 
       {terpilih && terpilih.sumber?.startsWith('blob:') && (
         <p className="peringatan">{t('editor.media.hilang')}</p>
+      )}
+
+      {dialogLatar && (
+        <div className="dialog-latar" onClick={() => setDialogLatar(false)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>{t('editor.latar')}</h2>
+            <label className="baris-angka">
+              <span>{t('editor.teks.warna')}</span>
+              <input
+                type="color"
+                value={/^#[0-9a-f]{6}$/i.test(proyek.latar) ? proyek.latar : '#111114'}
+                onChange={(e) =>
+                  ubah((p) => {
+                    p.latar = e.target.value;
+                    if (p.latarGradien) p.latarGradien.dari = e.target.value;
+                  })
+                }
+              />
+            </label>
+            <label className="baris-centang">
+              <input
+                type="checkbox"
+                checked={!!proyek.latarGradien}
+                onChange={(e) =>
+                  ubah((p) => {
+                    if (e.target.checked) p.latarGradien = { dari: p.latar, ke: '#241b45', sudut: 135 };
+                    else delete p.latarGradien;
+                  })
+                }
+              />
+              {t('editor.latar.pakai')}
+            </label>
+            {proyek.latarGradien && (
+              <>
+                <div className="dua-kolom">
+                  <label className="baris-angka">
+                    <span>{t('editor.latar.dari')}</span>
+                    <input
+                      type="color"
+                      value={
+                        /^#[0-9a-f]{6}$/i.test(proyek.latarGradien.dari)
+                          ? proyek.latarGradien.dari
+                          : '#111114'
+                      }
+                      onChange={(e) =>
+                        ubah((p) => {
+                          if (p.latarGradien) p.latarGradien.dari = e.target.value;
+                        })
+                      }
+                    />
+                  </label>
+                  <label className="baris-angka">
+                    <span>{t('editor.latar.ke')}</span>
+                    <input
+                      type="color"
+                      value={
+                        /^#[0-9a-f]{6}$/i.test(proyek.latarGradien.ke) ? proyek.latarGradien.ke : '#241b45'
+                      }
+                      onChange={(e) =>
+                        ubah((p) => {
+                          if (p.latarGradien) p.latarGradien.ke = e.target.value;
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <label className="baris-angka">
+                  <span>{t('editor.latar.sudut')}</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={360}
+                    value={Math.round(proyek.latarGradien.sudut)}
+                    onChange={(e) =>
+                      ubah((p) => {
+                        const n = Number(e.target.value);
+                        if (p.latarGradien && Number.isFinite(n)) p.latarGradien.sudut = n;
+                      })
+                    }
+                  />
+                </label>
+              </>
+            )}
+            <div className="dialog-aksi">
+              <button type="button" className="tombol" onClick={() => setDialogLatar(false)}>
+                {t('umum.tutup')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {dialogEkspor && (

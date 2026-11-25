@@ -7,10 +7,11 @@ interface Props {
   onBuka: (p: Proyek) => void;
   onTeks: () => void;
   onKlip: () => void;
+  onAi: () => void;
   onPengaturan: () => void;
 }
 
-export function Beranda({ onBuka, onTeks, onKlip, onPengaturan }: Props) {
+export function Beranda({ onBuka, onTeks, onKlip, onAi, onPengaturan }: Props) {
   const { t } = useT();
   const [proyek, setProyek] = useState<Proyek[]>(() => daftarProyek());
   const [formBaru, setFormBaru] = useState(false);
@@ -51,6 +52,10 @@ export function Beranda({ onBuka, onTeks, onKlip, onPengaturan }: Props) {
           <button type="button" className="kartu-aksi" onClick={onKlip}>
             <strong>{t('beranda.klip')}</strong>
             <span>9:16</span>
+          </button>
+          <button type="button" className="kartu-aksi" onClick={onAi}>
+            <strong>{t('beranda.ai')}</strong>
+            <span>✦</span>
           </button>
         </div>
 

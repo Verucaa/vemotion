@@ -4,12 +4,14 @@ import { Beranda } from './halaman/Beranda';
 import { Editor } from './halaman/Editor';
 import { TeksKeVideo } from './halaman/TeksKeVideo';
 import { Klip } from './halaman/Klip';
+import { AI } from './halaman/AI';
 import { Pengaturan } from './halaman/Pengaturan';
 
 type Tampilan =
   | { nama: 'beranda' }
   | { nama: 'teks' }
   | { nama: 'klip' }
+  | { nama: 'ai' }
   | { nama: 'pengaturan' }
   | { nama: 'editor'; proyek: Proyek };
 
@@ -33,6 +35,14 @@ export function App() {
           onBuat={(p) => setTampilan({ nama: 'editor', proyek: p })}
         />
       );
+    case 'ai':
+      return (
+        <AI
+          onKembali={() => setTampilan({ nama: 'beranda' })}
+          onBuat={(p) => setTampilan({ nama: 'editor', proyek: p })}
+          onPengaturan={() => setTampilan({ nama: 'pengaturan' })}
+        />
+      );
     case 'pengaturan':
       return <Pengaturan />;
     default:
@@ -41,6 +51,7 @@ export function App() {
           onBuka={(p) => setTampilan({ nama: 'editor', proyek: p })}
           onTeks={() => setTampilan({ nama: 'teks' })}
           onKlip={() => setTampilan({ nama: 'klip' })}
+          onAi={() => setTampilan({ nama: 'ai' })}
           onPengaturan={() => setTampilan({ nama: 'pengaturan' })}
         />
       );

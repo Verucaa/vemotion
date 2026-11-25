@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export const EASING = ['linear', 'easeInOut', 'easeOut', 'easeIn', 'backOut'] as const;
+export type Easing = (typeof EASING)[number];
+
 export const SkemaTransform = z.object({
   x: z.number(),
   y: z.number(),
@@ -14,7 +17,7 @@ export const TRANSFORM_DASAR: Transform = { x: 0, y: 0, skala: 1, rotasi: 0, opa
 export const SkemaKeyframe = z.object({
   t: z.number().min(0),
   properti: SkemaTransform.partial(),
-  easing: z.enum(['linear', 'easeInOut']).default('linear'),
+  easing: z.enum(EASING).default('linear'),
 });
 export type Keyframe = z.infer<typeof SkemaKeyframe>;
 
@@ -49,9 +52,40 @@ export const TEKS_DASAR: Teks = {
   animasiDurasi: 1,
 };
 
+export const JENIS_BENTUK = ['kotak', 'bulat', 'garis'] as const;
+export type JenisBentuk = (typeof JENIS_BENTUK)[number];
+
+export const SkemaBentuk = z.object({
+  bentuk: z.enum(JENIS_BENTUK),
+  isi: z.string(),
+  garisWarna: z.string().default('#ffffff'),
+  garisLebar: z.number().min(0).max(60).default(0),
+  radius: z.number().min(0).max(600).default(32),
+  lebar: z.number().min(1).max(4000).default(360),
+  tinggi: z.number().min(1).max(4000).default(220),
+});
+export type Bentuk = z.infer<typeof SkemaBentuk>;
+
+export const BENTUK_DASAR: Bentuk = {
+  bentuk: 'kotak',
+  isi: '#7c5cff',
+  garisWarna: '#ffffff',
+  garisLebar: 0,
+  radius: 32,
+  lebar: 360,
+  tinggi: 220,
+};
+
+export const SkemaGradien = z.object({
+  dari: z.string(),
+  ke: z.string(),
+  sudut: z.number().default(135),
+});
+export type Gradien = z.infer<typeof SkemaGradien>;
+
 export const SkemaLayer = z.object({
   id: z.string(),
-  tipe: z.enum(['teks', 'gambar', 'video']),
+  tipe: z.enum(['teks', 'gambar', 'video', 'bentuk']),
   nama: z.string(),
   mulai: z.number().min(0),
   durasi: z.number().positive(),
@@ -60,6 +94,7 @@ export const SkemaLayer = z.object({
   transform: SkemaTransform,
   keyframes: z.array(SkemaKeyframe),
   teks: SkemaTeks.optional(),
+  bentuk: SkemaBentuk.optional(),
   sumber: z.string().optional(),
   potong: z.number().min(0).default(0),
   cocok: z.enum(['tutup', 'muat']).default('tutup'),
@@ -75,6 +110,7 @@ export const SkemaProyek = z.object({
   fps: z.number().int().min(1).max(60),
   durasi: z.number().min(0.1).max(600),
   latar: z.string(),
+  latarGradien: SkemaGradien.optional(),
   layers: z.array(SkemaLayer),
   dibuat: z.number(),
   diubah: z.number(),
@@ -157,6 +193,32 @@ export function layerMedia(
     keyframes: [],
     sumber,
     potong,
+    cocok: 'tutup',
+  };
+}
+
+export function layerBentuk(
+  bentuk: JenisBentuk,
+  mulai = 0,
+  durasi = 3,
+  opsi: Partial<Bentuk> = {},
+): Layer {
+  const dasar: Bentuk =
+    bentuk === 'garis'
+      ? { ...BENTUK_DASAR, bentuk, lebar: 420, tinggi: 14, radius: 7, isi: '#ffffff' }
+      : { ...BENTUK_DASAR, bentuk };
+  return {
+    id: uid(),
+    tipe: 'bentuk',
+    nama: `Bentuk ${bentuk}`,
+    mulai,
+    durasi,
+    tampil: true,
+    kunci: false,
+    transform: { ...TRANSFORM_DASAR },
+    keyframes: [],
+    bentuk: { ...dasar, ...opsi, bentuk },
+    potong: 0,
     cocok: 'tutup',
   };
 }

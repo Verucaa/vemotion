@@ -1,4 +1,11 @@
 import { type Proyek, SkemaProyek, type NamaPreset } from '../skema/proyek';
+import {
+  ID_PENYEDIA,
+  KONFIG_AI_KOSONG,
+  PENYEDIA,
+  type IdPenyedia,
+  type KonfigAI,
+} from './ai/penyedia';
 
 const KUNCI_PROYEK = 'vemotion.proyek';
 const KUNCI_SETELAN = 'vemotion.setelan';
@@ -6,9 +13,10 @@ const KUNCI_SETELAN = 'vemotion.setelan';
 export interface Setelan {
   bahasa: 'id' | 'en';
   presetEkspor: NamaPreset;
+  ai: KonfigAI;
 }
 
-export const SETELAN_AWAL: Setelan = { bahasa: 'id', presetEkspor: 'hemat' };
+export const SETELAN_AWAL: Setelan = { bahasa: 'id', presetEkspor: 'hemat', ai: KONFIG_AI_KOSONG };
 
 function bacaJson<T>(kunci: string, cadangan: T): T {
   try {
@@ -53,11 +61,26 @@ export function hapusSemuaProyek(): void {
   tulisJson(KUNCI_PROYEK, []);
 }
 
+function bacaAI(mentah: unknown): KonfigAI {
+  const a = (mentah ?? {}) as Partial<KonfigAI>;
+  const penyedia: IdPenyedia = ID_PENYEDIA.includes(a.penyedia as IdPenyedia)
+    ? (a.penyedia as IdPenyedia)
+    : 'gemini';
+  const info = PENYEDIA[penyedia];
+  return {
+    penyedia,
+    model: typeof a.model === 'string' && a.model.trim() ? a.model : info.model,
+    kunci: typeof a.kunci === 'string' ? a.kunci : '',
+    alamat: typeof a.alamat === 'string' && a.alamat.trim() ? a.alamat : info.alamat,
+  };
+}
+
 export function bacaSetelan(): Setelan {
   const s = bacaJson<Partial<Setelan>>(KUNCI_SETELAN, {});
   return {
     bahasa: s.bahasa === 'en' ? 'en' : 'id',
     presetEkspor: (s.presetEkspor ?? SETELAN_AWAL.presetEkspor) as NamaPreset,
+    ai: bacaAI(s.ai),
   };
 }
 
