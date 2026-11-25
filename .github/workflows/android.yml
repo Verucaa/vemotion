@@ -37,19 +37,29 @@ jobs:
         run: npm run build
 
       - name: Siapkan JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Siapkan Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Nonaktifkan persetujuan lisensi otomatis dari action,
+          # karena versi cmdline-tools tertentu memanggil sdkmanager --licenses
+          # secara interaktif dan menyebabkan job hang.
+          accept-android-sdk-licenses: false
+          # Jangan install paket 'tools' (sudah dihapus dari SDK repository).
+          packages: ''
+          log-accepted-android-sdk-licenses: false
+
+      - name: Terima lisensi Android SDK
+        run: yes | sdkmanager --licenses > /dev/null || true
 
       - name: Pastikan platform Android 36
         run: |
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-36" >/dev/null
-          sdkmanager "build-tools;36.0.0" >/dev/null || echo "build-tools 36.0.0 tidak tersedia, AGP memakai versi bawaannya."
+          sdkmanager "platform-tools" "platforms;android-36" > /dev/null
+          sdkmanager "build-tools;36.0.0" > /dev/null || echo "build-tools 36.0.0 tidak tersedia, AGP memakai versi bawaannya."
 
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -82,8 +92,7 @@ jobs:
 
       - name: Bersihkan keystore
         if: always()
-        working-directory: android
-        run: rm -f release.keystore
+        run: rm -f android/release.keystore
 
       - name: Unggah APK debug
         uses: actions/upload-artifact@v4
